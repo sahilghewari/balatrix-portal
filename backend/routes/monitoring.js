@@ -18,7 +18,7 @@ router.get(
   authenticate,
   requireRole(ADMIN_ROLES),
   asyncHandler(async (req, res) => {
-    const status = await getMonitoringStatus(req.user.id);
+    const status = await getMonitoringStatus(req.user, req.query.adminId);
     return res.status(200).json({ status });
   })
 );
@@ -29,9 +29,10 @@ router.post(
   requireRole(ADMIN_ROLES),
   validateRequest(['subscriptionId']),
   asyncHandler(async (req, res) => {
-    const { subscriptionId } = req.body;
+    const { subscriptionId, adminId } = req.body;
     const subscription = await purchaseMonitoringAddon({
-      userId: req.user.id,
+      actor: req.user,
+      targetAdminId: adminId,
       subscriptionId,
     });
 
@@ -48,9 +49,10 @@ router.put(
   requireRole(ADMIN_ROLES),
   validateRequest(['supportUserId', 'extensionId']),
   asyncHandler(async (req, res) => {
-    const { supportUserId, extensionId } = req.body;
+    const { supportUserId, extensionId, adminId } = req.body;
     const supportUser = await grantMonitoringAccess({
-      adminId: req.user.id,
+      actor: req.user,
+      targetAdminId: adminId,
       supportUserId,
       extensionId,
     });
@@ -68,9 +70,10 @@ router.put(
   requireRole(ADMIN_ROLES),
   validateRequest(['supportUserId']),
   asyncHandler(async (req, res) => {
-    const { supportUserId } = req.body;
+    const { supportUserId, adminId } = req.body;
     const supportUser = await revokeMonitoringAccess({
-      adminId: req.user.id,
+      actor: req.user,
+      targetAdminId: adminId,
       supportUserId,
     });
 

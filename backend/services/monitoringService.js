@@ -3,7 +3,11 @@ const Subscription = require('../models/Subscription');
 const SupportUser = require('../models/SupportUser');
 const Extension = require('../models/Extension');
 const { deductFunds } = require('./walletService');
-const { enforceMonitoringSeatLimit, recordAudit } = require('./supportSeatService');
+const {
+  enforceMonitoringSeatLimit,
+  recordAudit,
+  resolveAdminContext,
+} = require('./supportSeatService');
 
 const MONITORING_ADDON_COST = Number(process.env.MONITORING_ADDON_COST_CENTS || 9900);
 
@@ -37,10 +41,11 @@ function sanitizeSupportUser(supportUserInstance) {
   return plain;
 }
 
-async function purchaseMonitoringAddon({ userId, subscriptionId }) {
+async function purchaseMonitoringAddon({ actor, targetAdminId, subscriptionId }) {
   return sequelize.transaction(async (transaction) => {
+    const adminId = await resolveAdminContext({ actor, targetAdminId, transaction });
     const subscription = await Subscription.findOne({
-      where: { id: subscriptionId, userId },
+      where: { id: subscriptionId, userId: adminId },
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
@@ -59,7 +64,7 @@ async function purchaseMonitoringAddon({ userId, subscriptionId }) {
 
     if (MONITORING_ADDON_COST > 0) {
       await deductFunds(
-        userId,
+        adminId,
         (MONITORING_ADDON_COST / 100).toFixed(2),
         { reason: 'monitoring_addon_purchase', subscriptionId },
         { transaction }
@@ -71,8 +76,8 @@ async function purchaseMonitoringAddon({ userId, subscriptionId }) {
 
     await recordAudit(
       {
-        adminId: userId,
-        actorId: userId,
+        adminId,
+        actorId: actor.id,
         action: 'monitoring_addon_purchased',
         metadata: { subscriptionId },
       },
@@ -83,9 +88,10 @@ async function purchaseMonitoringAddon({ userId, subscriptionId }) {
   });
 }
 
-async function getMonitoringStatus(userId) {
+async function getMonitoringStatus(actor, targetAdminId) {
+  const adminId = await resolveAdminContext({ actor, targetAdminId });
   const subscription = await Subscription.findOne({
-    where: { userId },
+    where: { userId: adminId },
     order: [['createdAt', 'DESC']],
   });
 
@@ -112,8 +118,9 @@ async function getMonitoringStatus(userId) {
   };
 }
 
-async function revokeMonitoringAccess({ adminId, supportUserId, actorId }) {
+async function revokeMonitoringAccess({ actor, targetAdminId, supportUserId }) {
   return sequelize.transaction(async (transaction) => {
+    const adminId = await resolveAdminContext({ actor, targetAdminId, transaction });
     const supportUser = await SupportUser.findOne({
       where: { id: supportUserId, adminId },
       transaction,
@@ -131,7 +138,7 @@ async function revokeMonitoringAccess({ adminId, supportUserId, actorId }) {
     await recordAudit(
       {
         adminId,
-        actorId,
+        actorId: actor.id,
         supportUserId,
         action: 'monitoring_revoked',
       },
@@ -142,8 +149,9 @@ async function revokeMonitoringAccess({ adminId, supportUserId, actorId }) {
   });
 }
 
-async function grantMonitoringAccess({ adminId, supportUserId, extensionId, actorId }) {
+async function grantMonitoringAccess({ actor, targetAdminId, supportUserId, extensionId }) {
   return sequelize.transaction(async (transaction) => {
+    const adminId = await resolveAdminContext({ actor, targetAdminId, transaction });
     const supportUser = await SupportUser.findOne({
       where: { id: supportUserId, adminId },
       include: [
@@ -197,7 +205,7 @@ async function grantMonitoringAccess({ adminId, supportUserId, extensionId, acto
     await recordAudit(
       {
         adminId,
-        actorId,
+        actorId: actor.id,
         supportUserId,
         action: 'monitoring_granted',
         metadata: { extensionId },

@@ -14,9 +14,10 @@ router.post(
   requireRole(ADMIN_ROLES),
   validateRequest(['subscriptionId']),
   asyncHandler(async (req, res) => {
-    const { subscriptionId } = req.body;
+    const { subscriptionId, adminId } = req.body;
     const subscription = await purchaseMonitoringAddon({
-      userId: req.user.id,
+      actor: req.user,
+      targetAdminId: adminId,
       subscriptionId,
     });
 

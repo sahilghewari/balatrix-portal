@@ -15,6 +15,7 @@ const billingWebhookHandler = require('./routes/billingWebhook');
 const walletRoutes = require('./routes/wallet');
 const tfnRoutes = require('./routes/tfns');
 const subscriptionRoutes = require('./routes/subscriptions');
+const supportUserRoutes = require('./routes/supportUsers');
 const { runAutoRenewCycle } = require('./jobs/autoRenew');
 
 dotenv.config();
@@ -47,6 +48,7 @@ app.use('/billing', billingRoutes);
 app.use('/wallet', walletRoutes);
 app.use('/tfns', tfnRoutes);
 app.use('/subscriptions', subscriptionRoutes);
+app.use('/support-users', supportUserRoutes);
 
 app.get('/', (_req, res) => {
   res.json({ message: 'Balatrix Portal backend is running' });
