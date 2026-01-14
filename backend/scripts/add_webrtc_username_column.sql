@@ -1,0 +1,2 @@
+ALTER TABLE extensions
+ADD COLUMN IF NOT EXISTS webrtc_username VARCHAR(64);

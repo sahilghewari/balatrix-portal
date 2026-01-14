@@ -1,0 +1,6 @@
+pgdata/
+# Local overrides
+backend/.env
+frontend/.env
+frontend/.env.development
+
