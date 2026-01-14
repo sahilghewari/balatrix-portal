@@ -26,7 +26,7 @@ export default function Signup() {
     setSuccess('')
 
     const missing = Object.entries(formData)
-      .filter(([_, value]) => !value.trim())
+      .filter(([, value]) => !value.trim())
       .map(([key]) => key)
 
     if (missing.length) {

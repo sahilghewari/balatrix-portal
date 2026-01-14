@@ -6,6 +6,9 @@ const models = {
   Subscription: require('../../models/Subscription'),
   StripeCheckoutSession: require('../../models/StripeCheckoutSession'),
   StripeWebhookEvent: require('../../models/StripeWebhookEvent'),
+  SupportUser: require('../../models/SupportUser'),
+  SupportSeatAllocation: require('../../models/SupportSeatAllocation'),
+  SupportSeatAudit: require('../../models/SupportSeatAudit'),
 };
 
 async function setupDatabase() {

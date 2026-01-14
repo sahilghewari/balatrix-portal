@@ -51,36 +51,60 @@ router.post(
     const adminId = await resolveAdminContext({ actor: req.user, targetAdminId: req.body.adminId });
     const { name, email, phone, password, status } = req.body;
 
-    const existing = await SupportUser.findOne({ where: { adminId, email } });
-    if (existing) {
-      return res.status(409).json({ message: 'Support user with this email already exists for tenant.' });
+    try {
+      const supportUser = await sequelize.transaction(async (transaction) => {
+        const existing = await SupportUser.findOne({
+          where: { adminId, email },
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        });
+
+        if (existing) {
+          const err = new Error('Support user with this email already exists for tenant.');
+          err.statusCode = 409;
+          throw err;
+        }
+
+        const allocation = await reserveSeat(adminId, { transaction });
+        const seatNumber = await getNextSeatNumber(adminId, { transaction });
+        const passwordHash = await bcrypt.hash(password, 10);
+
+        const created = await SupportUser.create(
+          {
+            adminId,
+            name,
+            email,
+            phone,
+            seatNumber,
+            passwordHash,
+            status: status === 'suspended' ? 'suspended' : 'active',
+            invitedAt: new Date(),
+            invitedBy: req.user.id,
+          },
+          { transaction }
+        );
+
+        await recordAudit(
+          {
+            adminId,
+            actorId: req.user.id,
+            supportUserId: created.id,
+            action: 'support_user_created',
+            metadata: { seatNumber, allocation: allocation.get({ plain: true }) },
+          },
+          { transaction }
+        );
+
+        return created;
+      });
+
+      return res.status(201).json({ user: sanitizeSupportUser(supportUser) });
+    } catch (error) {
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({ message: error.message });
+      }
+      throw error;
     }
-
-    const allocation = await reserveSeat(adminId);
-
-    const seatNumber = await getNextSeatNumber(adminId);
-    const passwordHash = await bcrypt.hash(password, 10);
-    const supportUser = await SupportUser.create({
-      adminId,
-      name,
-      email,
-      phone,
-      seatNumber,
-      passwordHash,
-      status: status === 'suspended' ? 'suspended' : 'active',
-      invitedAt: new Date(),
-      invitedBy: req.user.id,
-    });
-
-    await recordAudit({
-      adminId,
-      actorId: req.user.id,
-      supportUserId: supportUser.id,
-      action: 'support_user_created',
-      metadata: { seatNumber, allocation: allocation.get({ plain: true }) },
-    });
-
-    return res.status(201).json({ user: sanitizeSupportUser(supportUser) });
   })
 );
 
@@ -107,13 +131,18 @@ router.patch(
       supportUser.passwordHash = await bcrypt.hash(resetPassword, 10);
     }
 
-    await supportUser.save();
+    await sequelize.transaction(async (transaction) => {
+      await supportUser.save({ transaction });
 
-    await recordAudit({
-      adminId,
-      actorId: req.user.id,
-      supportUserId: supportUser.id,
-      action: 'support_user_updated',
+      await recordAudit(
+        {
+          adminId,
+          actorId: req.user.id,
+          supportUserId: supportUser.id,
+          action: 'support_user_updated',
+        },
+        { transaction }
+      );
     });
 
     return res.status(200).json({ user: sanitizeSupportUser(supportUser) });

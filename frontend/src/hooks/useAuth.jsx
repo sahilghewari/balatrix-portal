@@ -1,7 +1,6 @@
 import { createContext, useContext, useMemo, useState } from 'react'
 import { jwtDecode } from 'jwt-decode'
-
-const STORAGE_KEY = 'balatrix_portal_token'
+import { clearToken, loadToken, saveToken } from '../services/sessionStorage'
 
 const AuthContext = createContext(null)
 
@@ -16,12 +15,12 @@ function decodeToken(jwt) {
 }
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => localStorage.getItem(STORAGE_KEY) || '')
+  const [token, setToken] = useState(() => loadToken())
   const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
+    const stored = loadToken()
     const decoded = decodeToken(stored)
     if (!decoded) {
-      localStorage.removeItem(STORAGE_KEY)
+      clearToken()
     }
     return decoded
   })
@@ -31,12 +30,12 @@ export function AuthProvider({ children }) {
       token,
       user,
       login: (jwt) => {
-        localStorage.setItem(STORAGE_KEY, jwt)
+        saveToken(jwt)
         setToken(jwt)
         setUser(decodeToken(jwt))
       },
       logout: () => {
-        localStorage.removeItem(STORAGE_KEY)
+        clearToken()
         setToken('')
         setUser(null)
       },
@@ -47,6 +46,7 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const context = useContext(AuthContext)
   if (!context) {

@@ -2,6 +2,7 @@ const SupportSeatAllocation = require('../models/SupportSeatAllocation');
 const SupportSeatAudit = require('../models/SupportSeatAudit');
 const SupportUser = require('../models/SupportUser');
 const User = require('../models/User');
+const sequelize = require('../config/database');
 
 function sanitizeAllocation(allocationInstance) {
   if (!allocationInstance) return null;
@@ -31,25 +32,43 @@ async function ensureAllocation(adminId, { defaults = {}, transaction } = {}) {
 }
 
 async function reserveSeat(adminId, { transaction } = {}) {
-  const allocation = await ensureAllocation(adminId, { transaction });
+  const tx = transaction || (await sequelize.transaction());
+  const shouldCommit = !transaction;
 
-  if (allocation.totalSeats <= allocation.usedSeats) {
-    throw new Error('No support seats available for this tenant.');
+  try {
+    const allocation = await ensureAllocation(adminId, { transaction: tx });
+
+    if (allocation.totalSeats <= allocation.usedSeats) {
+      throw new Error('No support seats available for this tenant.');
+    }
+
+    allocation.usedSeats += 1;
+    await allocation.save({ transaction: tx, fields: ['usedSeats'] });
+
+    if (shouldCommit) await tx.commit();
+    return allocation;
+  } catch (error) {
+    if (shouldCommit) await tx.rollback();
+    throw error;
   }
-
-  allocation.usedSeats += 1;
-  await allocation.save({ transaction });
-
-  return allocation;
 }
 
 async function releaseSeat(adminId, { transaction } = {}) {
-  const allocation = await ensureAllocation(adminId, { transaction });
+  const tx = transaction || (await sequelize.transaction());
+  const shouldCommit = !transaction;
 
-  allocation.usedSeats = Math.max(0, allocation.usedSeats - 1);
-  await allocation.save({ transaction });
+  try {
+    const allocation = await ensureAllocation(adminId, { transaction: tx });
 
-  return allocation;
+    allocation.usedSeats = Math.max(0, allocation.usedSeats - 1);
+    await allocation.save({ transaction: tx, fields: ['usedSeats'] });
+
+    if (shouldCommit) await tx.commit();
+    return allocation;
+  } catch (error) {
+    if (shouldCommit) await tx.rollback();
+    throw error;
+  }
 }
 
 async function enforceMonitoringSeatLimit(adminId, { transaction } = {}) {

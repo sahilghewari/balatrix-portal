@@ -15,6 +15,7 @@ import AddOns from './components/AddOns.jsx'
 import ProtectedRoute from './components/routes/ProtectedRoute.jsx'
 import RoleRedirect from './components/routes/RoleRedirect.jsx'
 import { AuthProvider } from './hooks/useAuth.jsx'
+import SupportUserManagement from './pages/Support/SupportUserManagement.jsx'
 
 const Dashboard = () => (
   <section className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
@@ -60,6 +61,7 @@ function App() {
         <Route element={<ProtectedRoute allowedRoles={['admin', 'support', 'super_admin']} />}>
           <Route element={<Layout />}>
             <Route path="/subscriptions" element={<Placeholder title="Subscriptions" />} />
+            <Route path="/support-users" element={<SupportUserManagement />} />
             <Route path="/wallet" element={<Wallet />} />
             <Route path="/addons" element={<AddOns />} />
             <Route path="/tfns" element={<Placeholder title="Toll-Free Numbers" />} />

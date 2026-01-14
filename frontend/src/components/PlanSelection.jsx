@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 const PLANS = [
@@ -54,13 +54,7 @@ export default function PlanSelection() {
   const navigate = useNavigate()
   const [selectedPlan, setSelectedPlan] = useState(PLANS[0].id)
   const [billingCycle, setBillingCycle] = useState(BILLING_CYCLES[0].id)
-  const [addons, setAddons] = useState([])
-
-  const price = useMemo(() => {
-    const plan = PLANS.find((item) => item.id === selectedPlan)
-    if (!plan) return 0
-    return plan.pricing[billingCycle]
-  }, [selectedPlan, billingCycle])
+  const [addons] = useState([])
 
   const handleCheckout = () => {
     navigate('/admin/checkout', {
