@@ -1,7 +1,7 @@
 const sequelize = require('../config/database');
 const Tfn = require('../models/Tfn');
 const Subscription = require('../models/Subscription');
-const { deductFunds, getOrCreateWallet } = require('./walletService');
+const { debitCents, InsufficientFundsError } = require('./walletService');
 
 const SETUP_FEE_THRESHOLD_MONTHS = 3;
 const TFN_SETUP_FEE_CENTS = Number(process.env.TFN_SETUP_FEE_CENTS || 9999);
@@ -70,30 +70,28 @@ async function selectTfn({ userId, subscriptionId, phoneNumber }) {
     tfn.setupFeeCharged = setupFeeCharged;
 
     if (setupFeeCharged && TFN_SETUP_FEE_CENTS > 0) {
-      const amountDollars = (TFN_SETUP_FEE_CENTS / 100).toFixed(2);
-
-      const wallet = await getOrCreateWallet(userId, { transaction: t });
-      const currentBalance = Number(wallet.balance || 0);
-
-      if (currentBalance < Number(amountDollars)) {
-        const error = new Error(
-          'Insufficient wallet balance to cover the toll-free number setup fee. Please add funds before assigning a number.'
+      try {
+        await debitCents(
+          userId,
+          BigInt(TFN_SETUP_FEE_CENTS),
+          {
+            reason: 'tfn_setup_fee',
+            phoneNumber,
+            subscriptionId: subscription.id,
+            billingCycle: subscription.billingCycle,
+          },
+          { transaction: t }
         );
-        error.statusCode = 402;
+      } catch (error) {
+        if (error instanceof InsufficientFundsError) {
+          const insufficient = new Error(
+            'Insufficient wallet balance to cover the toll-free number setup fee. Please add funds before assigning a number.'
+          );
+          insufficient.statusCode = 402;
+          throw insufficient;
+        }
         throw error;
       }
-
-      await deductFunds(
-        userId,
-        amountDollars,
-        {
-          reason: 'tfn_setup_fee',
-          phoneNumber,
-          subscriptionId: subscription.id,
-          billingCycle: subscription.billingCycle,
-        },
-        { transaction: t }
-      );
     }
 
     await tfn.save({ transaction: t });

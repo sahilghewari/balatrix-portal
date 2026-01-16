@@ -72,7 +72,7 @@ function App() {
               <Route path="/wallet" element={<Wallet />} />
               <Route path="/usage" element={<UsageDashboard />} />
               <Route path="/addons" element={<AddOns />} />
-              <Route path="/tfns" element={<Placeholder title="Toll-Free Numbers" />} />
+              <Route path="/tfns" element={<TfnSelection />} />
             </Route>
           </Route>
 

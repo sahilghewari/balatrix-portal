@@ -1,1 +1,2 @@
 require('./WalletTopUp');
+require('./AddOn');

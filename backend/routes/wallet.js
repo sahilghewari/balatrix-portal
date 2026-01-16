@@ -16,10 +16,17 @@ router.get(
     const { wallet, transactions } = await getWalletWithTransactions(req.user.id, 50);
 
     return res.status(200).json({
-      balance: wallet.balance,
-      balanceZero: wallet.balanceZero,
-      defaultCard: wallet.defaultCard,
-      autoCharge: wallet.autoCharge,
+      wallet: {
+        id: wallet.id,
+        balance: Number(wallet.balance),
+        currency: wallet.currency,
+        balanceZero: wallet.balanceZero,
+        reservedCents: wallet.reservedCents,
+        lowBalanceThresholdCents: wallet.lowBalanceThresholdCents,
+        defaultCard: wallet.defaultCard,
+        autoCharge: wallet.autoCharge,
+        updatedAt: wallet.updatedAt,
+      },
       transactions,
     });
   })
@@ -32,7 +39,8 @@ router.get(
     const { wallet } = await getWalletWithTransactions(req.user.id, 0);
 
     return res.status(200).json({
-      balance: wallet.balance,
+      balance: Number(wallet.balance),
+      currency: wallet.currency,
       balanceZero: wallet.balanceZero,
       defaultCard: wallet.defaultCard,
       autoCharge: wallet.autoCharge,
