@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "nodemon app.js",
     "start": "node app.js",
-    "test": "NODE_ENV=test jest --runInBand"
+    "test": "NODE_ENV=test jest --runInBand",
+    "seed:tfns": "node scripts/seedTfns.js"
   },
   "keywords": [],
   "author": "",
@@ -17,6 +18,7 @@
     "dayjs": "^1.11.19",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "express-validator": "^7.3.1",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.16.3",
     "pg-hstore": "^2.3.4",

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../hooks/useAuth.jsx'
+import WalletTopUpModal from './wallet/WalletTopUpModal.jsx'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 const LOW_BALANCE_THRESHOLD = 50
@@ -19,8 +20,8 @@ export default function Wallet() {
   const [balance, setBalance] = useState(0)
   const [freeMinutes, setFreeMinutes] = useState(0)
   const [transactions, setTransactions] = useState([])
-  const [amount, setAmount] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const [topUpOpen, setTopUpOpen] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
   const headers = useMemo(() => {
     const result = {
@@ -59,6 +60,7 @@ export default function Wallet() {
       setError(err.message)
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
@@ -67,42 +69,14 @@ export default function Wallet() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const handleRecharge = async (event) => {
-    event.preventDefault()
+  const handleRefresh = () => {
+    setRefreshing(true)
+    fetchWallet()
+  }
 
-    const numericAmount = Number(amount)
-    if (!numericAmount || Number.isNaN(numericAmount) || numericAmount <= 0) {
-      setError('Please enter a valid amount to add.')
-      return
-    }
-
-    setSubmitting(true)
-    setError('')
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/wallet/recharge`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ amount: numericAmount }),
-      })
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}))
-        throw new Error(payload.message || 'Failed to add funds.')
-      }
-
-      const payload = await response.json()
-      const wallet = payload?.wallet || {}
-
-      setBalance(Number(wallet.balance) || balance + numericAmount)
-      setTransactions(payload?.transactions || transactions)
-      setAmount('')
-    } catch (err) {
-      console.error('Wallet recharge error:', err)
-      setError(err.message)
-    } finally {
-      setSubmitting(false)
-    }
+  const handleTopUpCompleted = () => {
+    setTopUpOpen(false)
+    handleRefresh()
   }
 
   const isLowBalance = balance <= LOW_BALANCE_THRESHOLD
@@ -143,28 +117,16 @@ export default function Wallet() {
 
         <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-sm font-medium text-slate-600">Add Funds</p>
-          <form className="mt-4 space-y-3" onSubmit={handleRecharge}>
-            <div>
-              <label className="text-xs font-medium uppercase tracking-wide text-slate-500" htmlFor="amount">
-                Amount (USD)
-              </label>
-              <input
-                id="amount"
-                name="amount"
-                type="number"
-                min="1"
-                step="0.01"
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                placeholder="Enter amount"
-                required
-              />
-            </div>
-            <button type="submit" className="btn-primary w-full" disabled={submitting}>
-              {submitting ? 'Processing…' : 'Add Funds'}
-            </button>
-          </form>
+          <p className="mt-3 text-sm text-slate-600">
+            Top up via Stripe. Funds become available once payment completes successfully.
+          </p>
+          <button
+            type="button"
+            className="btn-primary mt-4 w-full"
+            onClick={() => setTopUpOpen(true)}
+          >
+            Start Stripe Top-Up
+          </button>
         </article>
       </div>
 
@@ -173,6 +135,16 @@ export default function Wallet() {
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Transaction History</h2>
             <p className="text-sm text-slate-600">Track wallet recharges, deductions, and adjustments.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={handleRefresh}
+              disabled={refreshing || loading}
+            >
+              {refreshing ? 'Refreshing…' : 'Refresh'}
+            </button>
           </div>
         </header>
 
@@ -219,6 +191,12 @@ export default function Wallet() {
           </div>
         )}
       </section>
+      {topUpOpen && (
+        <WalletTopUpModal
+          onClose={() => setTopUpOpen(false)}
+          onCompleted={handleTopUpCompleted}
+        />
+      )}
     </section>
   )
 }

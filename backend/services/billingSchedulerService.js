@@ -7,6 +7,7 @@ const StripeWebhookEvent = require('../models/StripeWebhookEvent');
 const { addFunds, deductFunds, getOrCreateWallet } = require('./walletService');
 const { calculateTotal } = require('./pricingService');
 const { activateSubscriptionFromCheckout } = require('./subscriptionService');
+const { createInvoiceForSubscription, determinePeriod, createInvoiceInternal } = require('./invoiceService');
 const Stripe = require('stripe');
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
@@ -168,16 +169,36 @@ async function processSubscriptionRenewal(subscription, options = {}) {
   const amountCents = subscription.planAmountCents + subscription.addonAmountCents;
 
   return sequelize.transaction({ transaction: options.transaction }, async (transaction) => {
+    const periodContext = determinePeriod({
+      nextBillingDate: subscription.nextBillingDate,
+      billingCycle: subscription.billingCycle,
+      periodEndOverride: subscription.nextBillingDate,
+    });
+
     const walletResult = await attemptWalletCharge(subscription, amountCents, { transaction });
     if (walletResult.success) {
       await scheduleNextBilling(subscription, { transaction });
-      return { ...walletResult, amountCents };
+
+      const invoice = await createInvoiceForSubscription(subscription.id, {
+        transaction,
+        periodStart: periodContext.periodStart,
+        periodEnd: periodContext.periodEnd,
+      });
+
+      return { ...walletResult, amountCents, invoiceId: invoice.id };
     }
 
     const stripeResult = await attemptStripeCharge(subscription, amountCents, { transaction });
     if (stripeResult.success) {
       await scheduleNextBilling(subscription, { transaction });
-      return { ...stripeResult, amountCents };
+
+      const invoice = await createInvoiceForSubscription(subscription.id, {
+        transaction,
+        periodStart: periodContext.periodStart,
+        periodEnd: periodContext.periodEnd,
+      });
+
+      return { ...stripeResult, amountCents, invoiceId: invoice.id };
     }
 
     return handleFailedCharge(subscription, stripeResult.reason || 'wallet_and_stripe_failed', {

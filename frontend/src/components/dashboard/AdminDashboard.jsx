@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { fetchSubscriptionSummary } from '../../services/subscriptionApi'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -70,8 +71,14 @@ export default function AdminDashboard() {
         )}
 
         {status === 'success' && !summary && (
-          <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-            No subscriptions found yet. Select a plan to get started.
+          <div className="mt-6 flex flex-col items-start gap-4 rounded-lg border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
+            <p>No subscriptions found yet. Choose a plan to get started.</p>
+            <Link
+              to="/admin/plans"
+              className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+            >
+              Browse plans
+            </Link>
           </div>
         )}
 

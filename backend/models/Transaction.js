@@ -21,8 +21,13 @@ Transaction.init(
       onDelete: 'CASCADE',
     },
     type: {
-      type: DataTypes.ENUM('recharge', 'deduction'),
+      type: DataTypes.ENUM('recharge', 'deduction', 'reservation', 'reservation_release'),
       allowNull: false,
+    },
+    reservationId: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      field: 'reservation_id',
     },
     amount: {
       type: DataTypes.DECIMAL(12, 2),

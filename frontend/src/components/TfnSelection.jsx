@@ -1,30 +1,55 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth.jsx'
+import { fetchSubscriptionSummary } from '../services/subscriptionApi.js'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 export default function TfnSelection() {
   const navigate = useNavigate()
+  const { token } = useAuth()
   const [numbers, setNumbers] = useState([])
   const [selectedNumber, setSelectedNumber] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [subscriptionId, setSubscriptionId] = useState('')
 
   useEffect(() => {
-    const fetchNumbers = async () => {
+    if (!token) {
+      setError('Authentication required. Please sign in again.')
+      setLoading(false)
+      return
+    }
+
+    const fetchContext = async () => {
       setLoading(true)
       setError('')
       try {
-        const response = await fetch(`${API_BASE_URL}/tfns?status=available`)
-        if (!response.ok) {
-          const payload = await response.json().catch(() => ({}))
+        const [subscriptionResponse, tfnResponse] = await Promise.all([
+          fetchSubscriptionSummary(token),
+          fetch(`${API_BASE_URL}/tfns?status=available`, {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+        ])
+
+        const activeSubscriptionId = subscriptionResponse?.summary?.id
+        if (!activeSubscriptionId) {
+          throw new Error('No active subscription found. Complete checkout before selecting a number.')
+        }
+
+        if (!tfnResponse.ok) {
+          const payload = await tfnResponse.json().catch(() => ({}))
           throw new Error(payload.message || 'Failed to fetch toll-free numbers.')
         }
 
-        const payload = await response.json()
+        const payload = await tfnResponse.json()
         setNumbers(payload?.tfns || [])
+        setSubscriptionId(activeSubscriptionId)
       } catch (err) {
         console.error('TFN fetch error:', err)
         setError(err.message)
@@ -32,11 +57,17 @@ export default function TfnSelection() {
         setLoading(false)
       }
     }
+    fetchContext()
+  }, [token])
 
-    fetchNumbers()
-  }, [])
+  const hasSubscription = useMemo(() => Boolean(subscriptionId), [subscriptionId])
 
   const handleSubmit = async () => {
+    if (!subscriptionId) {
+      setError('No active subscription detected. Complete checkout before assigning a toll-free number.')
+      return
+    }
+
     if (!selectedNumber) {
       setError('Please select a toll-free number before continuing.')
       return
@@ -49,8 +80,10 @@ export default function TfnSelection() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          subscriptionId,
           phoneNumber: selectedNumber,
         }),
       })
@@ -78,7 +111,11 @@ export default function TfnSelection() {
         </p>
       </header>
 
-      {loading ? (
+      {!hasSubscription && !loading ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-700">
+          Complete a plan checkout before selecting a toll-free number.
+        </div>
+      ) : loading ? (
         <div className="flex min-h-[40vh] items-center justify-center">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
         </div>

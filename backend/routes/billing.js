@@ -1,6 +1,6 @@
 const express = require('express');
 const dotenv = require('dotenv');
-const Stripe = require('stripe');
+const { stripe } = require('../services/stripe');
 const { authenticate, requireRole } = require('../middleware/auth');
 const validateRequest = require('../middleware/validateRequest');
 const { randomUUID } = require('crypto');
@@ -13,18 +13,8 @@ const { addFunds } = require('../services/walletService');
 dotenv.config();
 
 const router = express.Router();
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
-
-if (!STRIPE_SECRET_KEY || STRIPE_SECRET_KEY.length < 32) {
-  throw new Error('STRIPE_SECRET_KEY must be configured with a secure value.');
-}
-
 const STRIPE_CURRENCY = process.env.STRIPE_CURRENCY || 'usd';
 const CHECKOUT_SESSION_TTL_MINUTES = Number(process.env.CHECKOUT_SESSION_TTL_MINUTES || 30);
-
-const stripe = new Stripe(STRIPE_SECRET_KEY, {
-  apiVersion: process.env.STRIPE_API_VERSION || '2023-10-16',
-});
 
 const createCheckoutValidator = validateRequest(['intent']);
 const finalizeCheckoutValidator = validateRequest(['clientToken']);

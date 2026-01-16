@@ -1,7 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
-const Stripe = require('stripe');
 const User = require('../models/User');
 const validateRequest = require('../middleware/validateRequest');
 const { ensureSecretStrong } = require('../utils/jwt');
@@ -18,15 +17,7 @@ if (!resolvedJwtSecret || resolvedJwtSecret.length < 32) {
 
 const JWT_SECRET = resolvedJwtSecret;
 const TOKEN_EXPIRY = process.env.JWT_ACCESS_EXPIRY || '15m';
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
-
-if (!STRIPE_SECRET_KEY || STRIPE_SECRET_KEY.length < 32) {
-  throw new Error('STRIPE_SECRET_KEY must be configured with a secure value.');
-}
-
-const stripe = new Stripe(STRIPE_SECRET_KEY, {
-  apiVersion: process.env.STRIPE_API_VERSION || '2023-10-16',
-});
+const { stripe } = require('../services/stripe');
 
 ensureSecretStrong(JWT_SECRET);
 

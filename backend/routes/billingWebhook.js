@@ -3,6 +3,7 @@ const Stripe = require('stripe');
 const StripeCheckoutSession = require('../models/StripeCheckoutSession');
 const StripeWebhookEvent = require('../models/StripeWebhookEvent');
 const User = require('../models/User');
+const { handlePaymentIntentEvent } = require('../services/walletTopUpService');
 
 dotenv.config();
 
@@ -70,6 +71,14 @@ module.exports = async function billingWebhookHandler(req, res) {
       }
       case 'invoice.payment_failed': {
         await handlePaymentFailed(event.data.object);
+        break;
+      }
+      case 'payment_intent.succeeded':
+      case 'payment_intent.processing':
+      case 'payment_intent.payment_failed':
+      case 'payment_intent.canceled':
+      case 'payment_intent.requires_action': {
+        await handlePaymentIntentEvent(event);
         break;
       }
       default:

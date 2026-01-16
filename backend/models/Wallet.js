@@ -26,10 +26,27 @@ Wallet.init(
       allowNull: false,
       defaultValue: 0.0,
     },
+    reservedCents: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      field: 'reserved_cents',
+    },
     balanceZero: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: true,
+    },
+    currency: {
+      type: DataTypes.STRING(8),
+      allowNull: false,
+      defaultValue: 'usd',
+    },
+    lowBalanceThresholdCents: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      field: 'low_balance_threshold_cents',
     },
     defaultCard: {
       type: DataTypes.STRING,

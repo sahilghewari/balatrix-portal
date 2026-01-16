@@ -76,6 +76,7 @@ async function activateSubscriptionFromCheckout(record, options = {}) {
 
       await subscription.save({ transaction });
 
+      const { getOrCreateWallet } = require('./walletService');
       await getOrCreateWallet(record.userId, { transaction });
 
       return subscription;

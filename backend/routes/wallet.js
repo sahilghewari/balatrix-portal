@@ -1,9 +1,8 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const { authenticate, requireRole } = require('../middleware/auth');
-const validateRequest = require('../middleware/validateRequest');
 const asyncHandler = require('../middleware/asyncHandler');
-const { addFunds, getWalletWithTransactions } = require('../services/walletService');
+const { getWalletWithTransactions } = require('../services/walletService');
 
 dotenv.config();
 
@@ -38,23 +37,6 @@ router.get(
       defaultCard: wallet.defaultCard,
       autoCharge: wallet.autoCharge,
       updatedAt: wallet.updatedAt,
-    });
-  })
-);
-
-router.post(
-  '/recharge',
-  authenticate,
-  requireRole('admin'),
-  validateRequest(['amount']),
-  asyncHandler(async (req, res) => {
-    const { amount, metadata = {} } = req.body;
-    const wallet = await addFunds(req.user.id, amount, metadata);
-
-    return res.status(200).json({
-      message: 'Wallet recharged successfully.',
-      balance: wallet.balance,
-      balanceZero: wallet.balanceZero,
     });
   })
 );

@@ -13,10 +13,13 @@ const authRoutes = require('./routes/auth');
 const billingRoutes = require('./routes/billing');
 const billingWebhookHandler = require('./routes/billingWebhook');
 const walletRoutes = require('./routes/wallet');
+const walletTopUpRoutes = require('./routes/walletTopUps');
 const tfnRoutes = require('./routes/tfns');
 const subscriptionRoutes = require('./routes/subscriptions');
 const supportUserRoutes = require('./routes/supportUsers');
+const usageRoutes = require('./routes/usage');
 const { runAutoRenewCycle } = require('./jobs/autoRenew');
+const { runUsagePipeline } = require('./jobs/usageRating');
 
 dotenv.config();
 
@@ -46,9 +49,11 @@ app.use(express.json());
 app.use('/auth', authRoutes);
 app.use('/billing', billingRoutes);
 app.use('/wallet', walletRoutes);
+app.use('/wallet/top-ups', walletTopUpRoutes);
 app.use('/tfns', tfnRoutes);
 app.use('/subscriptions', subscriptionRoutes);
 app.use('/support-users', supportUserRoutes);
+app.use('/usage', usageRoutes);
 
 app.get('/', (_req, res) => {
   res.json({ message: 'Balatrix Portal backend is running' });
@@ -59,8 +64,13 @@ async function initializeDatabase() {
     await sequelize.authenticate();
     console.log('Database connection established.');
 
-    await sequelize.sync();
-    console.log('Models synchronized successfully.');
+    const shouldSync =
+      process.env.NODE_ENV === 'test' || process.env.SEQUELIZE_SYNC === 'true';
+
+    if (shouldSync) {
+      await sequelize.sync();
+      console.log('Models synchronized successfully.');
+    }
   } catch (error) {
     console.error('Unable to connect to the database:', error);
     if (process.env.NODE_ENV !== 'test') {
@@ -116,12 +126,32 @@ if (process.env.NODE_ENV !== 'test') {
   startServer()
     .then(() => {
       if (process.env.DISABLE_SCHEDULER !== 'true') {
-        const interval = Number(process.env.AUTO_RENEW_INTERVAL_MINUTES || 15);
+        const autoRenewIntervalMinutes = Number(process.env.AUTO_RENEW_INTERVAL_MINUTES || 15);
         setInterval(() => {
           runAutoRenewCycle().catch((error) => {
             console.error('Auto-renew interval failure', error);
           });
-        }, interval * 60 * 1000);
+        }, autoRenewIntervalMinutes * 60 * 1000);
+
+        const usageIntervalMinutes = Number(process.env.USAGE_PIPELINE_INTERVAL_MINUTES || 5);
+        const runUsage = () =>
+          runUsagePipeline()
+            .then((summary) => {
+              if (summary?.error) {
+                console.error('Usage pipeline completed with error', summary);
+              }
+            })
+            .catch((error) => {
+              console.error('Usage pipeline failure', error);
+            });
+
+        setInterval(runUsage, usageIntervalMinutes * 60 * 1000);
+
+        if (process.env.RUN_USAGE_PIPELINE_ON_BOOT !== 'false') {
+          runUsage().catch((error) => {
+            console.error('Usage pipeline initial run failed', error);
+          });
+        }
       }
     })
     .catch((err) => {

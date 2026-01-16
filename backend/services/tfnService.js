@@ -1,10 +1,11 @@
 const sequelize = require('../config/database');
 const Tfn = require('../models/Tfn');
 const Subscription = require('../models/Subscription');
-const { deductFunds } = require('./walletService');
+const { deductFunds, getOrCreateWallet } = require('./walletService');
 
 const SETUP_FEE_THRESHOLD_MONTHS = 3;
 const TFN_SETUP_FEE_CENTS = Number(process.env.TFN_SETUP_FEE_CENTS || 9999);
+const DEFAULT_AVAILABLE_LIMIT = Number(process.env.TFN_AVAILABLE_LIMIT || 25);
 
 function sanitizeTfn(tfnInstance) {
   if (!tfnInstance) return null;
@@ -70,6 +71,18 @@ async function selectTfn({ userId, subscriptionId, phoneNumber }) {
 
     if (setupFeeCharged && TFN_SETUP_FEE_CENTS > 0) {
       const amountDollars = (TFN_SETUP_FEE_CENTS / 100).toFixed(2);
+
+      const wallet = await getOrCreateWallet(userId, { transaction: t });
+      const currentBalance = Number(wallet.balance || 0);
+
+      if (currentBalance < Number(amountDollars)) {
+        const error = new Error(
+          'Insufficient wallet balance to cover the toll-free number setup fee. Please add funds before assigning a number.'
+        );
+        error.statusCode = 402;
+        throw error;
+      }
+
       await deductFunds(
         userId,
         amountDollars,
@@ -108,6 +121,16 @@ async function listActiveTfns(userId) {
   return tfns.map(sanitizeTfn);
 }
 
+async function listAvailableTfns({ limit = DEFAULT_AVAILABLE_LIMIT } = {}) {
+  const tfns = await Tfn.findAll({
+    where: { provisioningStatus: 'available' },
+    order: [['createdAt', 'ASC']],
+    limit,
+  });
+
+  return tfns.map(sanitizeTfn);
+}
+
 async function releaseTfnsForSubscription(subscriptionId) {
   await Tfn.update(
     {
@@ -123,5 +146,6 @@ async function releaseTfnsForSubscription(subscriptionId) {
 module.exports = {
   selectTfn,
   listActiveTfns,
+  listAvailableTfns,
   releaseTfnsForSubscription,
 };

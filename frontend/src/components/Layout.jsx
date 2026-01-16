@@ -6,6 +6,7 @@ const navItems = [
   { to: '/subscriptions', label: 'Subscriptions' },
   { to: '/wallet', label: 'Wallet' },
   { to: '/addons', label: 'Add-ons' },
+  { to: '/usage', label: 'Usage' },
   { to: '/tfns', label: 'TFNs' },
 ]
 
